@@ -1,0 +1,179 @@
+---
+title: "Data Science as a Field Week Three Project"
+date: '2022-08-07'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, echo=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+```
+
+# Introduction
+This project is an analysis of the "NYPD Shooting Incident Data (Historic)" data set.
+"NYPD Shooting Incident Data (Historic)" is a data set found at https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD . It contains various data about every shooting incident in New York City from 2006 until the end of the last calendar year. Some information that is contained in each record includes the location, time of occurrence, and information about the suspect and victim.
+
+The main goal of my analysis is to determine how gun violence has been distributed through time. This includes the distribution of gun violence over the years, and the distribution of gun violence among the hours of the day.
+
+# Preparation
+```{r loadDataSet, echo=TRUE}
+address <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+NYPDshootingDataSet <- read.csv(address)
+```
+Below is a summary of the data set.
+```{r summarizeDataSet, echo=TRUE}
+summary(NYPDshootingDataSet)
+```
+For clarity, I have included the head of the data set below.
+```{r head, echo=TRUE}
+NYPDshootingDataSet %>% head()
+```
+The first change that I will make to the data set is to remove unnecessary columns.
+```{r removeColumns, echo=TRUE}
+NYPDshootingDataSet <- NYPDshootingDataSet %>% select(OCCUR_DATE, OCCUR_TIME, STATISTICAL_MURDER_FLAG)
+```
+Next, I will convert the values in the OCCUR_DATE column into a date type, the values in  the OCCUR_TIME column into a period, and the values in the STATISTICAL_MURDER_FLAG column into a factor type.
+```{r convertColumns, echo=TRUE}
+NYPDshootingDataSet <- NYPDshootingDataSet %>% mutate(OCCUR_DATE = mdy(OCCUR_DATE))
+NYPDshootingDataSet <- NYPDshootingDataSet %>% mutate(OCCUR_TIME = hms(OCCUR_TIME))
+NYPDshootingDataSet$STATISTICAL_MURDER_FLAG <- as.factor(NYPDshootingDataSet$STATISTICAL_MURDER_FLAG)
+```
+Now, I show a summary to verify that there are no missing values in the columns that I have selected.
+```{r checkForMissingValues, echo=TRUE}
+nrow(NYPDshootingDataSet)
+summary(is.na(NYPDshootingDataSet))
+```
+Since the number of rows that are not missing in each of the columns I selected are equal to the total number of rows, we know there are no missing values.
+
+# First Visualization
+For my first visualization, I will plot the number of shootings and murders by shooting that occurred each year. First, I need to extract the year from each value in OCCUR_DATE.
+```{r extractYear, echo=TRUE}
+NYPDshootingDataSet <- NYPDshootingDataSet %>% mutate(yrs = year(OCCUR_DATE))
+```
+Now I will determine how many shootings and murders by shooting occurred in each year.
+```{r determineNumberOfShootingsByYear, echo=TRUE}
+shootingsAndMurdersEachYear <- NYPDshootingDataSet %>% group_by(yrs) %>% dplyr::count()
+murder <- NYPDshootingDataSet %>% filter(STATISTICAL_MURDER_FLAG == "true") %>% group_by(yrs) %>% dplyr::count()
+shootingsAndMurdersEachYear$murders <- murder$n
+```
+Finally, I can plot the number of shootings and murders by shooting that occurred in each year.
+```{r firstPlot, echo=TRUE}
+shootingsAndMurdersEachYear %>%
+  ggplot(aes(x = yrs, y = n)) +
+  geom_line(aes(color = "shootings")) +
+  geom_point(aes(color = "shootings")) +
+  geom_line(aes(y = murders, color = "murders by shooting")) +
+  geom_point(aes(y = murders, color = "murders by shooting")) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "year", y = "number", title = "Shootings in New York City by Year", y = NULL)
+```
+
+## Analysis of First Visualization
+Shootings and murders by shooting followed a similar trend. Although there is some variation from year to year, it appears that there was a general trend of decline before 2017. From 2017 to 2019 the numbers were relatively stable. Then, in 2020 there was a dramatic spike followed by a slight increase in 2021.
+
+# Second Visualization
+For my second visualization, I will plot the number of shootings and murders by shooting that occurred in each hour of the day. First I need to extract the hour from each value in OCCUR_TIME.
+```{r extractHour, echo=TRUE}
+NYPDshootingDataSet <- NYPDshootingDataSet %>% mutate(hrs = hour(OCCUR_TIME))
+```
+Now I will determine how many shootings occurred during each hour of the day.
+```{r determineNumberOfShootingsByHour, echo=TRUE}
+shootingsAndMurdersEachHour <- NYPDshootingDataSet %>% group_by(hrs) %>% dplyr::count()
+murder <- NYPDshootingDataSet %>% filter(STATISTICAL_MURDER_FLAG == "true") %>% group_by(hrs) %>% dplyr::count()
+shootingsAndMurdersEachHour$murders <- murder$n
+```
+Finally, I can plot the number of shootings that occurred during each hour of the day.
+```{r secondPlot, echo=TRUE}
+tickLabels <- c("12 am-1 am", "1 am-2 am", "2 am-3 am", "3 am-4 am", "4 am-5 am","5 am-6 am", "6 am-7 am", "7 am-8 am",  "8 am-9 am", "9 am-10 am", "10 am-11 am", "11 am-12 pm",  "12 pm-1 pm","1 pm-2 pm", "2 pm-3 pm", "3 pm-4 pm",  "4 pm-5 pm","5 pm-6 pm", "6 pm-7 pm", "7 pm-8 pm",  "8 pm-9 pm", "9 pm-10 pm", "10 pm-11 pm", "11 pm-12 am")
+shootingsAndMurdersEachHour %>%
+  ggplot(aes(x = hrs, y = n)) +
+  geom_line(aes(color = "shootings")) +
+  geom_point(aes(color = "shootings")) +
+  geom_line(aes(y = murders, color = "murders by shooting")) +
+  geom_point(aes(y = murders, color = "murders by shooting")) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "hour of day", y = "number", title = "Shootings in New York City by Hour", y = NULL) +
+  scale_x_continuous(labels= tickLabels, breaks = c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23))
+```
+
+## Analysis of Second Visualization
+The number of shootings is lowest between 9 am and 10 am. Throughout the day the number of shootings rises, until it reaches a peak between 11 pm and 12 am. The number of shootings drops throughout the night until we get back to the 9 am to 10 am minimum. The number of murders by shooting follows a similar pattern, except that it peaks an hour earlier, between 10 pm and 11 pm. Overall, there has been drastically more gun violence in the evening than in the morning in New York City.
+
+# First Model
+For my first model, I am  going to model the number of murders by shooting that occur in a year as a linear function of the total number of shootings that occurred in that year. The first step is to create the model.
+```{r buildFirstModel, echo=TRUE}
+yearsModel <- lm(murders ~ n, data = shootingsAndMurdersEachYear)
+```
+Here is a summary of the model.
+```{r summaryFirstModel, echo=TRUE}
+summary(yearsModel)
+```
+
+The absolute values of the minimum and maximum residuals are small, so I expect the fit to look good. The value of the intercept is negative, so we should expect that for the years with a small number of shootings, the ratio of murders by shooting to total number of shootings should be low. The ratio should increase to approach about 0.214 as the number of shootings increases.
+
+Next, I need to add the model's predictions to the data frame. 
+```{r addPredictionsToDataFrame, echo=TRUE}
+shootingsAndMurdersEachYear <- shootingsAndMurdersEachYear %>% ungroup() %>% mutate(predictions = predict(yearsModel))
+```
+Now, I can plot the actual data and the predictions to compare.
+```{r plotFirstModel, echo=TRUE}
+shootingsAndMurdersEachYear %>% ggplot() +
+  geom_line(aes(x = n, y = predictions, color = "Predictions")) +
+  geom_point(aes(x = n, y = predictions, color = "Predictions")) +
+  geom_point(aes(x = n, y = murders, color = "Data")) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(x="Shootings", y="Murders by Shooting", title = "Number of Murders by Shooting by Number of Shootings for Each Year")
+```
+
+## Analysis of Plot of First Model
+Each dot represents one year. Each dot is plotted based on the total number of shootings and the number of murders by shooting that occurred during that year. There do not seem to be any outliers. Also, the model looks like a relatively good fit, as expected from the residuals in the model's summary. 
+
+# Second Model
+For my second model, I am  going to model the number of murders by shooting that occurred in each hour of the day as a linear function of the total number of shootings that occurred in that hour of the day. The first step is to create the model.
+```{r buildSecondModel, echo=TRUE}
+hoursModel <- lm(murders ~ n, data = shootingsAndMurdersEachHour)
+```
+Here is a summary of the model.
+```{r summarySecondModel, echo=TRUE}
+summary(hoursModel)
+```
+
+Once again, the absolute values of the minimum and maximum residuals are small, so I expect the fit to look good. However, this time the value of the intercept is positive, so we should expect that for the years with a small number of shootings, the ratio of murders by shooting to total number of shootings should be above 0.169 . The ratio should decrease to approach about 0.169 as the number of shootings increases.
+
+Next, I need to add the model's predictions to the data frame. 
+```{r addPredictionsFromSecondModelToDataFrame, echo=TRUE}
+shootingsAndMurdersEachHour <- shootingsAndMurdersEachHour %>% ungroup() %>% mutate(predictions = predict(hoursModel))
+```
+Now, I can plot the actual data and the predictions to compare.
+```{r plotSecondModel, echo=TRUE}
+shootingsAndMurdersEachHour %>% ggplot() +
+  geom_line(aes(x = n, y = predictions, color = "Predictions")) +
+  geom_point(aes(x = n, y = predictions, color = "Predictions")) +
+  geom_point(aes(x = n, y = murders, color = "Data")) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(x="Shootings", y="Murders by Shooting", title = "Number of Murders by Shooting by Number of Shootings for Each Hour")
+```
+
+## Analysis of Plot of Second Model
+Each dot represents one of the 24 hours in the day. Each dot is plotted based on the total number of shootings and the number of murders by shooting that occurred in that hour of the day. Once again, there do not seem to be any outliers. Also, once again, the model looks like a relatively good fit, as expected from the residuals in the model's summary. 
+
+# Additional questions
+
+The results raise some additional questions that I or someone else could investigate in the future. For instance, why was gun violence in decline in New York City from 2006 to 2017? Why did gun violence spike in 2020? Why was there such a drastic difference in the rates of gun violence in the morning versus the evening? Why does the number of murders by shooting peak earlier in the evening than the total number of shootings?
+
+# Conclusion
+In conclusion, levels of gun violence in New York City were in decline from 2006 to 2017, and then stable from 2017 to 2019 before a massive spike in 2020; levels of gun violence in New York City were much higher in the evening than the morning; finally, murders by shooting can be expressed as linear function of the total number shootings either in a year, or in an hour of the day.
+
+# Bias
+Now I will discuss any biases I am aware of that may be present in my analysis. One possible source of bias is the possibility that some shootings were never reported to the NYPD. Another possible source of bias is the possibility that the NYPD did not include every shooting that they were aware of in the data set. Yet another source of possible bias is the selection of columns that I chose to analyze; if I was a different race, sex, or age, I may have been more interested in analyzing those columns. One more possible source of bias is personal bias. In the context of the columns that I chose to analyze, the most relevant personal biases are towards a particular time of day, and toward a particular set of years. As someone who prefers to stay up late, it is possible that I have a bias toward believing that people who stay up late are less likely to shoot people, and would therefore expect more shootings to take place in the morning. I have mitigated this bias by pretending that I was a morning person, and imagining how that would change my interpretation of the data and results. When it comes to the yearly data, since I am a young person, I may be biased to believe that there was more gun violence in the past, before people in my generation were old enough to contribute to gun violence. Similarly to the previous source of personal bias, I have mitigated this bias by pretending that I was an elderly person, and imagining how that would change my interpretation of the data and results.
+```{r cleanup, echo=TRUE}
+  sessionInfo()
+```
